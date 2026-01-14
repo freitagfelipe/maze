@@ -6,10 +6,12 @@ import "../dsu"
 import "../consts"
 
 CellType :: enum {
-    // Just for animation.
-    NotProcessedFloor,
     Floor,
     Wall,
+    // These below are essentially `CellType::Floor` but with different colors.
+    NotProcessedFloor,
+    StartFloor,
+    EndFloor,
 }
 
 Maze :: struct {
@@ -72,6 +74,9 @@ new :: proc() -> (self: Maze) {
             self.maze[row_idx * GRID_COLUMNS + column_idx] = cell_type
         }
     }
+
+    self.maze[1] = CellType.StartFloor
+    self.maze[(GRID_ROWS - 1) * GRID_COLUMNS + GRID_COLUMNS - 2] = CellType.EndFloor
 
     return
 }
@@ -147,6 +152,8 @@ draw :: proc(self: Maze) {
             switch self.maze[row_idx * GRID_COLUMNS + column_idx] {
             case .Floor: color = raylib.WHITE
             case .NotProcessedFloor, .Wall: color = raylib.BLACK
+            case .StartFloor: color = raylib.GREEN
+            case .EndFloor: color = raylib.RED
             }
 
             raylib.DrawRectangle(
