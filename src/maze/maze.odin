@@ -5,6 +5,8 @@ import "vendor:raylib"
 import "../dsu"
 import "../consts"
 
+MatrixPos :: [2]i32
+
 CellType :: enum {
     Floor,
     Wall,
@@ -16,6 +18,8 @@ CellType :: enum {
 
 Maze :: struct {
     maze: [consts.GRID_SIZE]CellType,
+    start: MatrixPos,
+    end: MatrixPos,
     set: dsu.Dsu,
     cell_pos_to_set_key: [consts.GRID_SIZE]i32,
     random_maze_wall_indices: [dynamic][2]i32,
@@ -52,6 +56,8 @@ new :: proc() -> (self: Maze) {
 
     self = Maze {
         set = dsu.new(dsu_size),
+        start = {0, 1},
+        end = {GRID_ROWS - 1, GRID_COLUMNS - 2},
         random_maze_wall_indices = random_maze_indices,
     }
 
@@ -75,8 +81,8 @@ new :: proc() -> (self: Maze) {
         }
     }
 
-    self.maze[1] = CellType.StartFloor
-    self.maze[(GRID_ROWS - 1) * GRID_COLUMNS + GRID_COLUMNS - 2] = CellType.EndFloor
+    self.maze[self.start[0] * GRID_COLUMNS + self.start[1]] = CellType.StartFloor
+    self.maze[(self.end[0]) * GRID_COLUMNS + self.end[1]] = CellType.EndFloor
 
     return
 }
@@ -152,8 +158,8 @@ draw :: proc(self: Maze) {
             switch self.maze[row_idx * GRID_COLUMNS + column_idx] {
             case .Floor: color = raylib.WHITE
             case .NotProcessedFloor, .Wall: color = raylib.BLACK
-            case .StartFloor: color = raylib.GREEN
-            case .EndFloor: color = raylib.RED
+            case .StartFloor: color = raylib.BLUE
+            case .EndFloor: color = raylib.GREEN
             }
 
             raylib.DrawRectangle(

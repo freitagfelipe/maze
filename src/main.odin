@@ -1,9 +1,17 @@
 package main
 
+import "base:runtime"
+import "core:fmt"
+import "core:os"
 import "core:math/rand"
 import "vendor:raylib"
 import "consts"
 import "maze"
+import "path_algorithms/a_star"
+
+PathAlgorithm :: enum {
+    AStar,
+}
 
 AppState :: enum {
     GeneratingMaze,
@@ -17,6 +25,8 @@ App :: struct {
     paused: bool,
     started_solving: bool,
     maze: maze.Maze,
+    path_algorithm: PathAlgorithm,
+    a_star: Maybe(a_star.AStar),
 }
 
 keyboard_input_handler :: proc(app: ^App) {
@@ -34,10 +44,12 @@ keyboard_input_handler :: proc(app: ^App) {
         }
     case .MazeGenerated:
         #partial switch raylib.GetKeyPressed() {
+        case raylib.KeyboardKey.ONE: app.path_algorithm = PathAlgorithm.AStar
         case raylib.KeyboardKey.ENTER:
             app.state = AppState.SolvingMaze
 
             raylib.SetWindowTitle("Maze - Solving")
+            raylib.SetTargetFPS(consts.TARGET_SOLVING_FPS)
         }
     case .SolvingMaze:
         #partial switch raylib.GetKeyPressed() {
@@ -89,26 +101,105 @@ generated_maze_screen :: proc(app: ^App) {
     raylib.EndDrawing()
 }
 
+solving_maze_screen :: proc(app: ^App) -> runtime.Allocator_Error {
+    switch app.path_algorithm {
+    case .AStar:
+        app.a_star = a_star.new(app.maze.start, app.maze.end) or_return
+    }
+
+    for !raylib.WindowShouldClose() {
+        raylib.BeginDrawing()
+
+        raylib.ClearBackground(raylib.BLACK)
+
+        maze.draw(app.maze)
+
+        any_updates_left: bool
+
+        switch app.path_algorithm {
+        case .AStar:
+            algorithm, ok := &app.a_star.?
+
+            if !ok {
+                fmt.println("A* should be initialized at this point")
+
+                os.exit(1)
+            }
+
+            last_iterated_node_pos: maze.MatrixPos
+
+            if !app.paused {
+                any_updates_left, last_iterated_node_pos = a_star.update(algorithm, app.maze.maze) or_return
+            }
+
+            a_star.draw(algorithm, last_iterated_node_pos)
+        }
+
+        if !any_updates_left {
+            app.state = AppState.MazeSolved
+
+            raylib.SetWindowTitle("Maze - Solved")
+
+            break
+        }
+
+        raylib.EndDrawing()
+    }
+
+    return .None
+}
+
+maze_solved_screen :: proc(app: ^App) {
+    raylib.BeginDrawing()
+
+    raylib.ClearBackground(raylib.BLACK)
+
+    maze.draw(app.maze)
+
+    switch app.path_algorithm {
+    case .AStar:
+        algorithm, ok := &app.a_star.?
+
+        if !ok {
+            fmt.println("A* should be initialized at this point")
+
+            os.exit(1)
+        }
+
+        a_star.draw(algorithm, app.maze.end)
+    }
+
+    raylib.EndDrawing()
+}
+
 main :: proc() {
     using consts
 
     raylib.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Maze - Generating")
+    defer raylib.CloseWindow()
 
-    raylib.SetTargetFPS(TARGET_FPS)
+    raylib.SetTargetFPS(TARGET_GENERAING_MAZE_FPS)
     
     app := App {
         state = AppState.GeneratingMaze,
         maze = maze.new()
     }
-
-    for !raylib.WindowShouldClose() {
-        // TODO: remove #partial once everything is implemented.
-        #partial switch app.state {
-        case .GeneratingMaze: generating_maze_screen(&app)
-        case .MazeGenerated: generated_maze_screen(&app)
-        }
+    defer maze.drop(&app.maze)
+    defer if algorithm, ok := app.a_star.?; ok {
+        a_star.drop(&algorithm)
     }
 
-    raylib.CloseWindow()
+    for !raylib.WindowShouldClose() {
+        switch app.state {
+        case .GeneratingMaze: generating_maze_screen(&app)
+        case .MazeGenerated: generated_maze_screen(&app)
+        case .SolvingMaze:
+            if err := solving_maze_screen(&app); err != nil {
+                fmt.println("Allocator_Error on solving maze")
 
+                os.exit(1)
+            }
+        case .MazeSolved: maze_solved_screen(&app)
+        }
+    }
 }
