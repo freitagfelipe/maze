@@ -58,13 +58,11 @@ AStar :: struct {
 }
 
 new :: proc(start, end: maze.MatrixPos) -> (self: AStar, error: runtime.Allocator_Error) {
-    using consts
-
     self = AStar {
         start = start,
         end = end,
         closed_set = make(map[maze.MatrixPos]maze.MatrixPos),
-        main_texture = raylib.LoadRenderTexture(SCREEN_WIDTH, SCREEN_HEIGHT),
+        main_texture = raylib.LoadRenderTexture(consts.SCREEN_WIDTH, consts.SCREEN_HEIGHT),
     }
 
     ord_fn :: proc(a, b: Node) -> bool {

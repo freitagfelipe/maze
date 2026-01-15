@@ -8,9 +8,11 @@ import "vendor:raylib"
 import "consts"
 import "maze"
 import "path_algorithms/a_star"
+import "path_algorithms/dfs"
 
 PathAlgorithm :: enum {
     AStar,
+    Dfs,
 }
 
 AppState :: enum {
@@ -27,6 +29,7 @@ App :: struct {
     maze: maze.Maze,
     path_algorithm: PathAlgorithm,
     a_star: Maybe(a_star.AStar),
+    dfs: Maybe(dfs.Dfs),
 }
 
 keyboard_input_handler :: proc(app: ^App) {
@@ -45,6 +48,7 @@ keyboard_input_handler :: proc(app: ^App) {
     case .MazeGenerated:
         #partial switch raylib.GetKeyPressed() {
         case raylib.KeyboardKey.ONE: app.path_algorithm = PathAlgorithm.AStar
+        case raylib.KeyboardKey.TWO: app.path_algorithm = PathAlgorithm.Dfs
         case raylib.KeyboardKey.ENTER:
             app.state = AppState.SolvingMaze
 
@@ -105,6 +109,8 @@ solving_maze_screen :: proc(app: ^App) -> runtime.Allocator_Error {
     switch app.path_algorithm {
     case .AStar:
         app.a_star = a_star.new(app.maze.start, app.maze.end) or_return
+    case .Dfs:
+        app.dfs = dfs.new(app.maze.start, app.maze.end)
     }
 
     for !raylib.WindowShouldClose() {
@@ -133,6 +139,22 @@ solving_maze_screen :: proc(app: ^App) -> runtime.Allocator_Error {
             }
 
             a_star.draw(algorithm, last_iterated_node_pos)
+        case .Dfs:
+            algorithm, ok := &app.dfs.?
+
+            if !ok {
+                fmt.println("Dfs* should be initialized at this point")
+
+                os.exit(1)
+            }
+
+            last_iterated_node_pos: maze.MatrixPos
+
+            if !app.paused {
+                any_updates_left, last_iterated_node_pos = dfs.update(algorithm, app.maze.maze)
+            }
+
+            dfs.draw(algorithm, last_iterated_node_pos)
         }
 
         if !any_updates_left {
@@ -167,6 +189,16 @@ maze_solved_screen :: proc(app: ^App) {
         }
 
         a_star.draw(algorithm, app.maze.end)
+    case .Dfs:
+        algorithm, ok := &app.dfs.?
+
+        if !ok {
+            fmt.println("Dfs should be initialized at this point")
+
+            os.exit(1)
+        }
+
+        dfs.draw(algorithm, app.maze.end)
     }
 
     raylib.EndDrawing()
@@ -189,6 +221,9 @@ main :: proc() {
     defer maze.drop(&app.maze)
     defer if algorithm, ok := app.a_star.?; ok {
         a_star.drop(&algorithm)
+    }
+    defer if algorithm, ok := app.dfs.?; ok {
+        dfs.drop(&algorithm)
     }
 
     for !raylib.WindowShouldClose() {
