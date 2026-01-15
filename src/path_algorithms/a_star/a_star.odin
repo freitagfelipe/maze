@@ -10,24 +10,22 @@ import "../../maze"
 
 @(private)
 available_pos :: proc(pos: maze.MatrixPos) -> [dynamic]maze.MatrixPos {
-    using consts
-
     directions := make([dynamic]maze.MatrixPos)
 
-    if pos[0] - 1 > 0 {
-        append(&directions, maze.MatrixPos{pos[0] - 1, pos[1]})
+    if pos.row - 1 > 0 {
+        append(&directions, maze.MatrixPos{pos.row - 1, pos.column})
     }
 
-    if pos[0] + 1 < GRID_ROWS {
-        append(&directions, maze.MatrixPos{pos[0] + 1, pos[1]})
+    if pos.row + 1 < consts.GRID_ROWS {
+        append(&directions, maze.MatrixPos{pos.row + 1, pos.column})
     }
 
-    if pos[1] - 1 > 0 {
-        append(&directions, maze.MatrixPos{pos[0], pos[1] - 1})
+    if pos.column - 1 > 0 {
+        append(&directions, maze.MatrixPos{pos.row, pos.column - 1})
     }
 
-    if pos[1] + 1 < GRID_COLUMNS {
-        append(&directions, maze.MatrixPos{pos[0], pos[1] + 1})
+    if pos.column + 1 < consts.GRID_COLUMNS {
+        append(&directions, maze.MatrixPos{pos.row, pos.column + 1})
     }
 
     return directions
@@ -35,7 +33,7 @@ available_pos :: proc(pos: maze.MatrixPos) -> [dynamic]maze.MatrixPos {
 
 @(private)
 h :: proc(pos, end: maze.MatrixPos) -> i32 {
-    return math.abs(end[0] - pos[0]) + math.abs(end[1] - pos[1])
+    return math.abs(end.row - pos.row) + math.abs(end.column - pos.column)
 }
 
 Node :: struct {
@@ -100,12 +98,10 @@ update :: proc(
     self: ^AStar,
     m: [consts.GRID_ROWS * consts.GRID_COLUMNS]maze.CellType,
 ) -> (bool, maze.MatrixPos, runtime.Allocator_Error) {
-    using consts
-
     assert(priority_queue.len(self.open_set) != 0)
 
     // Node that has the smaller `g`.
-    node, is_empty := priority_queue.pop_safe(&self.open_set)
+    node := priority_queue.pop(&self.open_set)
 
     if node.pos == self.end {
         self.closed_set[self.end] = node.parent_pos
@@ -122,10 +118,10 @@ update :: proc(
     self.closed_set[node.pos] = node.parent_pos
 
     raylib.DrawRectangle(
-        i32(node.pos[1] * SQUARE_SIZE),
-        i32((GRID_ROWS - node.pos[0] - 1) * SQUARE_SIZE),
-        SQUARE_SIZE,
-        SQUARE_SIZE,
+        i32(node.pos.column * consts.SQUARE_SIZE),
+        i32((consts.GRID_ROWS - node.pos.row - 1) * consts.SQUARE_SIZE),
+        consts.SQUARE_SIZE,
+        consts.SQUARE_SIZE,
         raylib.RED
     )
 
@@ -133,7 +129,9 @@ update :: proc(
     defer delete(available_positions)
 
     for available_position in available_positions {
-        if m[available_position[0] * GRID_COLUMNS + available_position[1]] == maze.CellType.Wall {
+        available_position_grid_cell_idx := maze.get_grid_idx_from_pos(available_position.row, available_position.column)
+
+        if m[available_position_grid_cell_idx] == maze.CellType.Wall {
             continue
         }
         
@@ -152,10 +150,10 @@ update :: proc(
         )
 
         raylib.DrawRectangle(
-            i32(available_position[1] * SQUARE_SIZE),
-            i32((GRID_ROWS - available_position[0] - 1) * SQUARE_SIZE),
-            SQUARE_SIZE,
-            SQUARE_SIZE,
+            i32(available_position.column * consts.SQUARE_SIZE),
+            i32((consts.GRID_ROWS - available_position.row - 1) * consts.SQUARE_SIZE),
+            consts.SQUARE_SIZE,
+            consts.SQUARE_SIZE,
             raylib.ORANGE
         )
     }
@@ -165,19 +163,23 @@ update :: proc(
     return priority_queue.len(self.open_set) != 0, node.pos, .None
 }
 
-draw :: proc(self: ^AStar, last_iterated_node_pos: maze.MatrixPos) {
-    using consts
+drop :: proc(self: ^AStar) {
+    priority_queue.destroy(&self.open_set)
+    delete(self.closed_set)
+    raylib.UnloadRenderTexture(self.main_texture)
+}
 
+draw :: proc(self: ^AStar, last_iterated_node_pos: maze.MatrixPos) {
     raylib.DrawTexture(self.main_texture.texture, 0, 0, raylib.WHITE)
 
     current_pos := last_iterated_node_pos
 
     for current_pos != {-1, -1} {
         raylib.DrawRectangle(
-            i32(current_pos[1] * SQUARE_SIZE),
-            i32(current_pos[0] * SQUARE_SIZE),
-            SQUARE_SIZE,
-            SQUARE_SIZE,
+            i32(current_pos.column * consts.SQUARE_SIZE),
+            i32(current_pos.row * consts.SQUARE_SIZE),
+            consts.SQUARE_SIZE,
+            consts.SQUARE_SIZE,
             raylib.GREEN,
         )
         
@@ -185,8 +187,3 @@ draw :: proc(self: ^AStar, last_iterated_node_pos: maze.MatrixPos) {
     }
 }
 
-drop :: proc(self: ^AStar) {
-    priority_queue.destroy(&self.open_set)
-    delete(self.closed_set)
-    raylib.UnloadRenderTexture(self.main_texture)
-}

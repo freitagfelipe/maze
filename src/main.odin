@@ -3,7 +3,7 @@ package main
 import "base:runtime"
 import "core:fmt"
 import "core:os"
-import "core:math/rand"
+import "core:strings"
 import "vendor:raylib"
 import "consts"
 import "maze"
@@ -173,12 +173,14 @@ maze_solved_screen :: proc(app: ^App) {
 }
 
 main :: proc() {
-    using consts
-
-    raylib.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Maze - Generating")
+    raylib.InitWindow(
+        consts.SCREEN_WIDTH,
+        consts.SCREEN_HEIGHT,
+        "Maze - Generating"
+    )
     defer raylib.CloseWindow()
 
-    raylib.SetTargetFPS(TARGET_GENERAING_MAZE_FPS)
+    raylib.SetTargetFPS(consts.TARGET_GENERAING_MAZE_FPS)
     
     app := App {
         state = AppState.GeneratingMaze,
