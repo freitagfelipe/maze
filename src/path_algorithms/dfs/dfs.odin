@@ -1,5 +1,6 @@
 package dfs
 
+import "core:fmt"
 import "vendor:raylib"
 import "../../consts"
 import "../../maze"
