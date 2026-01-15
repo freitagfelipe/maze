@@ -132,7 +132,9 @@ solving_maze_screen :: proc(app: ^App) -> runtime.Allocator_Error {
                 os.exit(1)
             }
 
-            any_updates_left, last_iterated_node_pos := a_star.update(algorithm, app.maze.maze) or_return
+            last_iterated_node_pos: maze.MatrixPos
+
+            any_updates_left, last_iterated_node_pos = a_star.update(algorithm, app.maze.maze) or_return
 
             a_star.draw(algorithm, last_iterated_node_pos)
         case .Dfs:
@@ -144,7 +146,9 @@ solving_maze_screen :: proc(app: ^App) -> runtime.Allocator_Error {
                 os.exit(1)
             }
 
-            any_updates_left, last_iterated_node_pos := dfs.update(algorithm, app.maze.maze)
+            last_iterated_node_pos: maze.MatrixPos
+
+            any_updates_left, last_iterated_node_pos = dfs.update(algorithm, app.maze.maze)
 
             dfs.draw(algorithm, last_iterated_node_pos)
         }
