@@ -156,7 +156,6 @@ generated_maze_screen :: proc(app: ^App) {
     raylib.EndDrawing()
 }
 
-// TODO: add pause
 solving_maze_screen :: proc(app: ^App) -> runtime.Allocator_Error {
     switch app.path_algorithm {
     case .AStar:
@@ -166,36 +165,43 @@ solving_maze_screen :: proc(app: ^App) -> runtime.Allocator_Error {
     }
 
     for !raylib.WindowShouldClose() {
+        keyboard_input_handler(app)
+
         raylib.BeginDrawing()
 
         raylib.ClearBackground(raylib.BLACK)
 
         maze.draw(app.maze)
 
-        any_updates_left: bool
-
         switch app.path_algorithm {
         case .AStar:
             algorithm := &app.a_star.? or_else panic("A* should be initialized at this point")
 
-            last_iterated_node_pos: maze.MatrixPos
-
-            any_updates_left, last_iterated_node_pos = a_star.update(algorithm, app.maze.maze) or_return
-
-            a_star.draw(algorithm, last_iterated_node_pos)
+            a_star.draw(algorithm)
         case .Dfs:
             algorithm := &app.dfs.? or_else panic("Dfs should be initialized at this point")
 
-            last_iterated_node_pos: maze.MatrixPos
-
-            any_updates_left, last_iterated_node_pos = dfs.update(algorithm, app.maze.maze)
-
-            dfs.draw(algorithm, last_iterated_node_pos)
+            dfs.draw(algorithm)
         }
 
         raylib.EndDrawing()
 
-        if !any_updates_left {
+        any_updates_left: bool
+
+        if !app.is_paused {
+            switch app.path_algorithm {
+            case .AStar:
+                algorithm := &app.a_star.? or_else panic("A* should be initialized at this point")
+
+                any_updates_left = a_star.update(algorithm, app.maze.maze) or_return
+            case .Dfs:
+                algorithm := &app.dfs.? or_else panic("Dfs should be initialized at this point")
+
+                any_updates_left = dfs.update(algorithm, app.maze.maze)
+            }
+        }
+
+        if !app.is_paused && !any_updates_left {
             app.state = AppState.MazeSolved
 
             change_window_title(app)
@@ -218,11 +224,11 @@ maze_solved_screen :: proc(app: ^App) {
     case .AStar:
         algorithm := &app.a_star.? or_else panic("A* should be initialized at this point")
 
-        a_star.draw(algorithm, app.maze.end)
+        a_star.draw(algorithm)
     case .Dfs:
         algorithm := &app.dfs.? or_else panic("Dfs should be initialized at this point")
 
-        dfs.draw(algorithm, app.maze.end)
+        dfs.draw(algorithm)
     }
 
     raylib.EndDrawing()

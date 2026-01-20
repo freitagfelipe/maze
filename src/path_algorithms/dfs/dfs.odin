@@ -24,6 +24,8 @@ Dfs :: struct {
     stack: [dynamic]maze.MatrixPos,
     // Holds the draw of the algorithm's general steps.
     main_texture: raylib.RenderTexture2D,
+    // For drawing purposes only.
+    path_end: maze.MatrixPos,
 }
 
 new :: proc(start, end: maze.MatrixPos) -> (self: Dfs) {
@@ -33,6 +35,7 @@ new :: proc(start, end: maze.MatrixPos) -> (self: Dfs) {
         node_info = make(map[maze.MatrixPos]Node),
         stack = make([dynamic]maze.MatrixPos),
         main_texture = raylib.LoadRenderTexture(consts.SCREEN_WIDTH, consts.SCREEN_HEIGHT),
+        path_end = start,
     }
 
     append(&self.stack, start)
@@ -50,7 +53,7 @@ new :: proc(start, end: maze.MatrixPos) -> (self: Dfs) {
 update :: proc(
     self: ^Dfs,
     m: [consts.GRID_ROWS * consts.GRID_COLUMNS]maze.CellType
-) -> (bool, maze.MatrixPos) {
+) -> bool {
     assert(len(self.stack) != 0)
 
     node_pos := self.stack[len(self.stack) - 1]
@@ -59,7 +62,9 @@ update :: proc(
     assert(node_exists)
 
     if node.pos == self.end {
-        return false, self.end
+        self.path_end = self.end
+
+        return false
     }
 
     step := node.neighborhood_processing_step
@@ -111,7 +116,9 @@ update :: proc(
 
         node.dfs_step = .Processed
 
-        return len(self.stack) != 0, node.parent_pos
+        self.path_end = node.parent_pos
+
+        return len(self.stack) != 0
     }
 
     append(&self.stack, next_node_pos)
@@ -123,7 +130,9 @@ update :: proc(
         dfs_step = .Processing,
     }
 
-    return len(self.stack) != 0, next_node_pos
+    self.path_end = next_node_pos
+
+    return len(self.stack) != 0
 }
 
 drop :: proc(self: ^Dfs) {
@@ -132,10 +141,10 @@ drop :: proc(self: ^Dfs) {
     raylib.UnloadRenderTexture(self.main_texture)
 }
 
-draw :: proc(self: ^Dfs, last_iterated_node_pos: maze.MatrixPos) {
+draw :: proc(self: ^Dfs) {
     raylib.DrawTexture(self.main_texture.texture, 0, 0, raylib.WHITE)
 
-    current_pos := last_iterated_node_pos
+    current_pos := self.path_end
 
     for current_pos != {-1, -1} {
         node, node_exists := self.node_info[current_pos]

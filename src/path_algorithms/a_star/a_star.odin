@@ -1,6 +1,7 @@
 package a_star
 
 import "base:runtime"
+import "core:fmt"
 import "core:math"
 import "core:container/priority_queue"
 import "vendor:raylib"
@@ -31,6 +32,8 @@ AStar :: struct {
     closed_set: map[maze.MatrixPos]maze.MatrixPos,
     // Holds the draw of the algorithm's general steps.
     main_texture: raylib.RenderTexture2D,
+    // For drawing purposes only.
+    path_end: maze.MatrixPos,
 }
 
 new :: proc(start, end: maze.MatrixPos) -> (self: AStar, error: runtime.Allocator_Error) {
@@ -39,6 +42,7 @@ new :: proc(start, end: maze.MatrixPos) -> (self: AStar, error: runtime.Allocato
         end = end,
         closed_set = make(map[maze.MatrixPos]maze.MatrixPos),
         main_texture = raylib.LoadRenderTexture(consts.SCREEN_WIDTH, consts.SCREEN_HEIGHT),
+        path_end = start,
     }
 
     ord_fn :: proc(a, b: Node) -> bool {
@@ -71,7 +75,7 @@ new :: proc(start, end: maze.MatrixPos) -> (self: AStar, error: runtime.Allocato
 update :: proc(
     self: ^AStar,
     m: [consts.GRID_ROWS * consts.GRID_COLUMNS]maze.CellType,
-) -> (bool, maze.MatrixPos, runtime.Allocator_Error) {
+) -> (bool, runtime.Allocator_Error) {
     assert(priority_queue.len(self.open_set) != 0)
 
     // Node that has the smaller `g`.
@@ -79,12 +83,15 @@ update :: proc(
 
     if node.pos == self.end {
         self.closed_set[self.end] = node.parent_pos
+        self.path_end = self.end
 
-        return false, self.end, .None
+        return false, .None
     }
 
     if _, ok := self.closed_set[node.pos]; ok {
-        return priority_queue.len(self.open_set) != 0, node.pos, .None
+        self.path_end = node.pos
+
+        return priority_queue.len(self.open_set) != 0, .None
     }
 
     raylib.BeginTextureMode(self.main_texture)
@@ -138,8 +145,10 @@ update :: proc(
     }
 
     raylib.EndTextureMode()
+    
+    self.path_end = node.pos
 
-    return priority_queue.len(self.open_set) != 0, node.pos, .None
+    return priority_queue.len(self.open_set) != 0, .None
 }
 
 drop :: proc(self: ^AStar) {
@@ -148,10 +157,10 @@ drop :: proc(self: ^AStar) {
     raylib.UnloadRenderTexture(self.main_texture)
 }
 
-draw :: proc(self: ^AStar, last_iterated_node_pos: maze.MatrixPos) {
+draw :: proc(self: ^AStar) {
     raylib.DrawTexture(self.main_texture.texture, 0, 0, raylib.WHITE)
 
-    current_pos := last_iterated_node_pos
+    current_pos := self.path_end
 
     for current_pos != {-1, -1} {
         raylib.DrawRectangle(
@@ -161,6 +170,12 @@ draw :: proc(self: ^AStar, last_iterated_node_pos: maze.MatrixPos) {
             consts.SQUARE_SIZE,
             raylib.GREEN,
         )
+
+        if !(current_pos in self.closed_set) {
+            fmt.eprintln(current_pos, "Not found in closed set")
+
+            break
+        }
         
         current_pos = self.closed_set[current_pos]
     }
