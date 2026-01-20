@@ -3,6 +3,7 @@ package main
 import "base:runtime"
 import "core:fmt"
 import "core:strings"
+import "core:mem"
 import "vendor:raylib"
 import "consts"
 import "maze"
@@ -23,7 +24,7 @@ AppState :: enum {
 
 App :: struct {
     state: AppState,
-    paused: bool,
+    is_paused: bool,
     started_solving: bool,
     maze: maze.Maze,
     path_algorithm: PathAlgorithm,
@@ -31,40 +32,91 @@ App :: struct {
     dfs: Maybe(dfs.Dfs),
 }
 
-keyboard_input_handler :: proc(app: ^App) {
-    #partial switch app.state {
-    case .GeneratingMaze:
-        #partial switch raylib.GetKeyPressed() {
-        case raylib.KeyboardKey.P:
-            if app.paused {
-                raylib.SetWindowTitle("Maze - Generating")
-            } else {
-                raylib.SetWindowTitle("Maze - Generating (paused)")
-            }
+get_window_title :: proc(app: ^App) -> string {
+    // TODO: handle error
+    builder := strings.builder_make() or_else panic("Alloc error")
 
-            app.paused = !app.paused
+    app_state_string: string
+
+    switch app.state {
+    case .GeneratingMaze: app_state_string = "Generating Maze"
+    case .MazeGenerated: app_state_string = "Maze Generated"
+    case .SolvingMaze: app_state_string = "Solving Maze"
+    case .MazeSolved: app_state_string = "Maze Solved"
+    }
+
+    algorithm_string: string
+
+    if app.state != AppState.GeneratingMaze {
+        switch app.path_algorithm {
+        case .AStar: algorithm_string = "- A*"
+        case .Dfs: algorithm_string = "- DFS"
         }
+    }
+
+    paused_string: string
+
+    if app.is_paused {
+        paused_string = "(paused)"
+    }
+
+    window_title := fmt.sbprintf(
+        &builder,
+        "Maze Solver - %s %s %s",
+        app_state_string,
+        algorithm_string,
+        paused_string,
+    )
+
+    return window_title
+}
+
+change_window_title :: proc(app: ^App) {
+    new_window_title := get_window_title(app)
+    defer delete(new_window_title)
+
+    new_window_title_cstring := strings.clone_to_cstring(new_window_title)
+    defer delete(new_window_title_cstring)
+
+    raylib.SetWindowTitle(new_window_title_cstring)
+}
+
+keyboard_input_handler :: proc(app: ^App) {
+    key_pressed := raylib.GetKeyPressed()
+    should_change_window_title := false
+
+    if key_pressed == raylib.KeyboardKey.P &&
+       app.state != AppState.MazeGenerated &&
+       app.state != AppState.MazeSolved
+    {
+        app.is_paused = !app.is_paused
+
+        should_change_window_title = true
+    }
+
+
+    #partial switch app.state {
     case .MazeGenerated:
-        #partial switch raylib.GetKeyPressed() {
-        case raylib.KeyboardKey.ONE: app.path_algorithm = PathAlgorithm.AStar
-        case raylib.KeyboardKey.TWO: app.path_algorithm = PathAlgorithm.Dfs
+        #partial switch key_pressed {
+        case raylib.KeyboardKey.ONE:
+            app.path_algorithm = PathAlgorithm.AStar
+
+            should_change_window_title = true
+        case raylib.KeyboardKey.TWO:
+            app.path_algorithm = PathAlgorithm.Dfs
+
+            should_change_window_title = true
         case raylib.KeyboardKey.ENTER:
             app.state = AppState.SolvingMaze
 
-            raylib.SetWindowTitle("Maze - Solving")
+            should_change_window_title = true
+
             raylib.SetTargetFPS(consts.TARGET_SOLVING_FPS)
         }
-    case .SolvingMaze:
-        #partial switch raylib.GetKeyPressed() {
-        case raylib.KeyboardKey.P:
-            if app.paused {
-                raylib.SetWindowTitle("Maze - Solving")
-            } else {
-                raylib.SetWindowTitle("Maze - Solving (paused)")
-            }
+    }
 
-            app.paused = !app.paused
-        }
+    if should_change_window_title {
+        change_window_title(app)
     }
 }
 
@@ -79,7 +131,7 @@ generating_maze_screen :: proc(app: ^App) {
 
     raylib.EndDrawing()
 
-    if app.paused {
+    if app.is_paused {
         return
     }
 
@@ -88,7 +140,7 @@ generating_maze_screen :: proc(app: ^App) {
     if !any_updates_left {
         app.state = AppState.MazeGenerated
 
-        raylib.SetWindowTitle("Maze - Generated")
+        change_window_title(app)
     }
 }
 
@@ -104,6 +156,7 @@ generated_maze_screen :: proc(app: ^App) {
     raylib.EndDrawing()
 }
 
+// TODO: add pause
 solving_maze_screen :: proc(app: ^App) -> runtime.Allocator_Error {
     switch app.path_algorithm {
     case .AStar:
@@ -145,7 +198,7 @@ solving_maze_screen :: proc(app: ^App) -> runtime.Allocator_Error {
         if !any_updates_left {
             app.state = AppState.MazeSolved
 
-            raylib.SetWindowTitle("Maze - Solved")
+            change_window_title(app)
 
             break
         }
@@ -179,7 +232,7 @@ main :: proc() {
     raylib.InitWindow(
         consts.SCREEN_WIDTH,
         consts.SCREEN_HEIGHT,
-        "Maze - Generating"
+        "Maze Solver - Generating Maze"
     )
     defer raylib.CloseWindow()
 
@@ -187,7 +240,8 @@ main :: proc() {
     
     app := App {
         state = AppState.GeneratingMaze,
-        maze = maze.new()
+        maze = maze.new(),
+        path_algorithm = PathAlgorithm.AStar,
     }
     defer maze.drop(&app.maze)
     defer {
