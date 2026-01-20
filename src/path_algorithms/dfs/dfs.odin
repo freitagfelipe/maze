@@ -1,6 +1,5 @@
 package dfs
 
-import "core:fmt"
 import "vendor:raylib"
 import "../../consts"
 import "../../maze"
@@ -14,33 +13,9 @@ DfsNodeStep :: enum {
 Node :: struct {
     pos: maze.MatrixPos,
     parent_pos: maze.MatrixPos,
-    neighborhood_processing_step: i32,
+    neighborhood_processing_step: int,
     dfs_step: DfsNodeStep,
 }
-
-@(private)
-available_pos :: proc(pos: maze.MatrixPos) -> [dynamic]maze.MatrixPos {
-    directions := make([dynamic]maze.MatrixPos)
-
-    if pos.row - 1 > 0 {
-        append(&directions, maze.MatrixPos{pos.row - 1, pos.column})
-    }
-
-    if pos.row + 1 < consts.GRID_ROWS {
-        append(&directions, maze.MatrixPos{pos.row + 1, pos.column})
-    }
-
-    if pos.column - 1 > 0 {
-        append(&directions, maze.MatrixPos{pos.row, pos.column - 1})
-    }
-
-    if pos.column + 1 < consts.GRID_COLUMNS {
-        append(&directions, maze.MatrixPos{pos.row, pos.column + 1})
-    }
-
-    return directions
-}
-
 
 Dfs :: struct {
     start: maze.MatrixPos,
@@ -89,37 +64,42 @@ update :: proc(
 
     step := node.neighborhood_processing_step
 
-    available_positions := available_pos(node.pos)
-    defer delete(available_positions)
-
     maybe_next_node_pos: Maybe(maze.MatrixPos)
+    available_directions := maze.AVAILABLE_DIRECTIONS
 
-    for available_position in available_positions[step:] {
-        node.neighborhood_processing_step += 1
+    for direction in available_directions[step:] {
+        node.neighborhood_processing_step += 1;
 
-        available_position_grid_cell_idx := maze.get_grid_idx_from_pos(available_position.row, available_position.column)
+        neighbor_pos := node.pos + direction
 
-        if available_position in self.node_info {
+        if !maze.is_pos_in_bounds(neighbor_pos) {
             continue
         }
 
-        if m[available_position_grid_cell_idx] == maze.CellType.Wall {
+        // Already being processed or totally visited.
+        if neighbor_pos in self.node_info {
             continue
         }
 
-        maybe_next_node_pos = available_position
+        grid_cell_idx := maze.get_grid_idx_from_pos(neighbor_pos)
+
+        if m[grid_cell_idx] == maze.CellType.Wall {
+            continue
+        }
+
+        maybe_next_node_pos = neighbor_pos
 
         break
     }
 
     next_node_pos, next_node_pos_exists := maybe_next_node_pos.?
 
-    if int(step) == len(available_positions) || !next_node_pos_exists {
+    if int(step) == len(available_directions) || !next_node_pos_exists {
         raylib.BeginTextureMode(self.main_texture)
 
         raylib.DrawRectangle(
-            i32(node.pos.column * consts.SQUARE_SIZE),
-            i32((consts.GRID_ROWS - node.pos.row - 1) * consts.SQUARE_SIZE),
+            i32(node.pos[1] * consts.SQUARE_SIZE),
+            i32((consts.GRID_ROWS - node.pos[0] - 1) * consts.SQUARE_SIZE),
             consts.SQUARE_SIZE,
             consts.SQUARE_SIZE,
             raylib.RED,
@@ -164,8 +144,8 @@ draw :: proc(self: ^Dfs, last_iterated_node_pos: maze.MatrixPos) {
         assert(node.dfs_step == .Processing)
 
         raylib.DrawRectangle(
-            i32(current_pos.column * consts.SQUARE_SIZE),
-            i32(current_pos.row * consts.SQUARE_SIZE),
+            i32(current_pos[1] * consts.SQUARE_SIZE),
+            i32(current_pos[0] * consts.SQUARE_SIZE),
             consts.SQUARE_SIZE,
             consts.SQUARE_SIZE,
             raylib.GREEN,

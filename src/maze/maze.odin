@@ -6,12 +6,27 @@ import "vendor:raylib"
 import "../dsu"
 import "../consts"
 
-MatrixPos :: struct {
-    row: i32,
-    column: i32,
+// [row, column]
+MatrixPos :: [2]int
+
+AVAILABLE_DIRECTIONS :: [][2]int{
+    {-1, 0}, // UP
+    {1, 0},  // DOWN
+    {0, -1}, // LEFT
+    {0, 1},  // RIGHT
 }
 
-get_grid_idx_from_pos :: proc(row: i32, column: i32) -> i32 {
+is_pos_in_bounds :: proc(pos: MatrixPos) -> bool {
+    row := pos[0]
+    column := pos[1]
+
+    return row >= 0 && row < consts.GRID_ROWS && column >= 0 && column < consts.GRID_COLUMNS
+}
+
+get_grid_idx_from_pos :: proc(pos: MatrixPos) -> int {
+    row := pos[0]
+    column := pos[1]
+
     return row * consts.GRID_COLUMNS + column
 }
 
@@ -50,10 +65,7 @@ get_all_maze_walls_pos_shuffled :: proc() -> queue.Queue(MatrixPos) {
 
             append(
                 &random_pos,
-                MatrixPos {
-                    row = i32(row_idx),
-                    column = i32(column_idx),
-                },
+                MatrixPos{row_idx, column_idx},
             )
         }
     }
@@ -90,14 +102,8 @@ new :: proc() -> (self: Maze) {
 
     self = Maze {
         set = dsu.new(dsu_size),
-        start = MatrixPos {
-            row = 0,
-            column = 1,
-        },
-        end = MatrixPos {
-            row = consts.GRID_ROWS - 1,
-            column = consts.GRID_COLUMNS - 2,
-        },
+        start = MatrixPos{0, 1},
+        end = MatrixPos{consts.GRID_ROWS - 1, consts.GRID_COLUMNS - 2},
         random_maze_walls = get_all_maze_walls_pos_shuffled(),
     }
 
@@ -105,7 +111,7 @@ new :: proc() -> (self: Maze) {
 
     for row_idx in 0..<consts.GRID_ROWS {
         for column_idx in 0..<consts.GRID_COLUMNS {
-            grid_cell_idx := get_grid_idx_from_pos(i32(row_idx), i32(column_idx))
+            grid_cell_idx := get_grid_idx_from_pos(MatrixPos{row_idx, column_idx})
 
             self.cell_pos_to_set_key[grid_cell_idx] = -1
 
@@ -123,8 +129,8 @@ new :: proc() -> (self: Maze) {
         }
     }
 
-    start_pos_idx := self.start.row * consts.GRID_COLUMNS + self.start.column
-    end_pos_idx := self.end.row * consts.GRID_COLUMNS + self.end.column
+    start_pos_idx := self.start[0] * consts.GRID_COLUMNS + self.start[1]
+    end_pos_idx := self.end[0] * consts.GRID_COLUMNS + self.end[1]
 
     self.maze[start_pos_idx] = CellType.StartFloor
     self.maze[end_pos_idx] = CellType.EndFloor
@@ -138,13 +144,13 @@ update :: proc(self: ^Maze) -> bool {
 
     assert(pop_success)
 
-    wall_row, wall_column := wall_pos.row, wall_pos.column
-    wall_grid_idx := get_grid_idx_from_pos(wall_pos.row, wall_pos.column)
+    wall_row, wall_column := wall_pos[0], wall_pos[1]
+    wall_grid_idx := get_grid_idx_from_pos(wall_pos)
 
     // It is a vertical wall.
     if wall_row % 2 == 1 && wall_column % 2 == 0 {
-        left_grid_cell_idx := get_grid_idx_from_pos(wall_row, wall_column - 1)
-        right_grid_cell_idx := get_grid_idx_from_pos(wall_row, wall_column + 1)
+        left_grid_cell_idx := get_grid_idx_from_pos(MatrixPos{wall_row, wall_column - 1})
+        right_grid_cell_idx := get_grid_idx_from_pos(MatrixPos{wall_row, wall_column + 1})
 
         // These idx accesses below are safe because we never get the border walls.
         left_cell_key := dsu.find(&self.set, self.cell_pos_to_set_key[left_grid_cell_idx])
@@ -167,8 +173,8 @@ update :: proc(self: ^Maze) -> bool {
 
     // It is a horizontal wall.
     if wall_row % 2 == 0 && wall_column % 2 == 1 {
-        above_grid_cell_idx := get_grid_idx_from_pos(wall_row - 1, wall_column)
-        below_grid_cell_idx := get_grid_idx_from_pos(wall_row + 1, wall_column)
+        above_grid_cell_idx := get_grid_idx_from_pos(MatrixPos{wall_row - 1, wall_column})
+        below_grid_cell_idx := get_grid_idx_from_pos(MatrixPos{wall_row + 1, wall_column})
 
         // These idx accesses below are safe because we never get the border walls.
         above_cell_key := dsu.find(&self.set, self.cell_pos_to_set_key[above_grid_cell_idx])
@@ -204,7 +210,7 @@ draw :: proc(self: Maze) {
         for column_idx in 0..<consts.GRID_COLUMNS {
             color: raylib.Color
 
-            grid_cell_idx := get_grid_idx_from_pos(i32(row_idx), i32(column_idx))
+            grid_cell_idx := get_grid_idx_from_pos(MatrixPos{row_idx, column_idx})
 
             switch self.maze[grid_cell_idx] {
             case .Floor: color = raylib.WHITE

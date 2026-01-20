@@ -2,7 +2,6 @@ package main
 
 import "base:runtime"
 import "core:fmt"
-import "core:os"
 import "core:strings"
 import "vendor:raylib"
 import "consts"
@@ -124,13 +123,7 @@ solving_maze_screen :: proc(app: ^App) -> runtime.Allocator_Error {
 
         switch app.path_algorithm {
         case .AStar:
-            algorithm, ok := &app.a_star.?
-
-            if !ok {
-                fmt.println("A* should be initialized at this point")
-
-                os.exit(1)
-            }
+            algorithm := &app.a_star.? or_else panic("A* should be initialized at this point")
 
             last_iterated_node_pos: maze.MatrixPos
 
@@ -138,13 +131,7 @@ solving_maze_screen :: proc(app: ^App) -> runtime.Allocator_Error {
 
             a_star.draw(algorithm, last_iterated_node_pos)
         case .Dfs:
-            algorithm, ok := &app.dfs.?
-
-            if !ok {
-                fmt.println("Dfs should be initialized at this point")
-
-                os.exit(1)
-            }
+            algorithm := &app.dfs.? or_else panic("Dfs should be initialized at this point")
 
             last_iterated_node_pos: maze.MatrixPos
 
@@ -176,23 +163,11 @@ maze_solved_screen :: proc(app: ^App) {
 
     switch app.path_algorithm {
     case .AStar:
-        algorithm, ok := &app.a_star.?
-
-        if !ok {
-            fmt.println("A* should be initialized at this point")
-
-            os.exit(1)
-        }
+        algorithm := &app.a_star.? or_else panic("A* should be initialized at this point")
 
         a_star.draw(algorithm, app.maze.end)
     case .Dfs:
-        algorithm, ok := &app.dfs.?
-
-        if !ok {
-            fmt.println("Dfs should be initialized at this point")
-
-            os.exit(1)
-        }
+        algorithm := &app.dfs.? or_else panic("Dfs should be initialized at this point")
 
         dfs.draw(algorithm, app.maze.end)
     }
@@ -215,11 +190,14 @@ main :: proc() {
         maze = maze.new()
     }
     defer maze.drop(&app.maze)
-    defer if algorithm, ok := app.a_star.?; ok {
-        a_star.drop(&algorithm)
-    }
-    defer if algorithm, ok := app.dfs.?; ok {
-        dfs.drop(&algorithm)
+    defer {
+        if algorithm, ok := app.a_star.?; ok {
+            a_star.drop(&algorithm)
+        }
+
+        if algorithm, ok := app.dfs.?; ok {
+            dfs.drop(&algorithm)
+        }
     }
 
     for !raylib.WindowShouldClose() {
@@ -228,9 +206,7 @@ main :: proc() {
         case .MazeGenerated: generated_maze_screen(&app)
         case .SolvingMaze:
             if err := solving_maze_screen(&app); err != nil {
-                fmt.println("Allocator_Error on solving maze")
-
-                os.exit(1)
+                panic("Allocator_Error on solving maze")
             }
         case .MazeSolved: maze_solved_screen(&app)
         }

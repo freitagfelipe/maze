@@ -1,6 +1,5 @@
 package a_star
 
-import "core:fmt"
 import "base:runtime"
 import "core:math"
 import "core:container/priority_queue"
@@ -9,31 +8,8 @@ import "../../consts"
 import "../../maze"
 
 @(private)
-available_pos :: proc(pos: maze.MatrixPos) -> [dynamic]maze.MatrixPos {
-    directions := make([dynamic]maze.MatrixPos)
-
-    if pos.row - 1 > 0 {
-        append(&directions, maze.MatrixPos{pos.row - 1, pos.column})
-    }
-
-    if pos.row + 1 < consts.GRID_ROWS {
-        append(&directions, maze.MatrixPos{pos.row + 1, pos.column})
-    }
-
-    if pos.column - 1 > 0 {
-        append(&directions, maze.MatrixPos{pos.row, pos.column - 1})
-    }
-
-    if pos.column + 1 < consts.GRID_COLUMNS {
-        append(&directions, maze.MatrixPos{pos.row, pos.column + 1})
-    }
-
-    return directions
-}
-
-@(private)
 h :: proc(pos, end: maze.MatrixPos) -> i32 {
-    return math.abs(end.row - pos.row) + math.abs(end.column - pos.column)
+    return i32(math.abs(end[0] - pos[0]) + math.abs(end[1] - pos[1]))
 }
 
 Node :: struct {
@@ -76,7 +52,7 @@ new :: proc(start, end: maze.MatrixPos) -> (self: AStar, error: runtime.Allocato
     priority_queue.init(
         &self.open_set,
         ord_fn,
-        swap_fn,
+        priority_queue.default_swap_proc(Node),
     ) or_return
 
     priority_queue.push(
@@ -116,40 +92,45 @@ update :: proc(
     self.closed_set[node.pos] = node.parent_pos
 
     raylib.DrawRectangle(
-        i32(node.pos.column * consts.SQUARE_SIZE),
-        i32((consts.GRID_ROWS - node.pos.row - 1) * consts.SQUARE_SIZE),
+        i32(node.pos[1] * consts.SQUARE_SIZE),
+        i32((consts.GRID_ROWS - node.pos[0] - 1) * consts.SQUARE_SIZE),
         consts.SQUARE_SIZE,
         consts.SQUARE_SIZE,
         raylib.RED
     )
 
-    available_positions := available_pos(node.pos)
-    defer delete(available_positions)
+    available_directions := maze.AVAILABLE_DIRECTIONS
 
-    for available_position in available_positions {
-        available_position_grid_cell_idx := maze.get_grid_idx_from_pos(available_position.row, available_position.column)
+    for direction in available_directions {
+        neighbor_pos := node.pos + direction
 
-        if m[available_position_grid_cell_idx] == maze.CellType.Wall {
+        grid_cell_idx := maze.get_grid_idx_from_pos(neighbor_pos)
+
+        if !maze.is_pos_in_bounds(neighbor_pos) {
             continue
         }
-        
-        if e, ok := self.closed_set[available_position]; ok {
+
+        if m[grid_cell_idx] == maze.CellType.Wall {
             continue
         }
-        
+
+        if neighbor_pos in self.closed_set {
+            continue
+        }
+
         priority_queue.push(
             &self.open_set,
             Node {
-                pos = available_position,
+                pos = neighbor_pos,
                 parent_pos = node.pos,
                 g = node.g + 1,
-                h = h(available_position, self.end),
+                h = h(neighbor_pos, self.end),
             }
         )
 
         raylib.DrawRectangle(
-            i32(available_position.column * consts.SQUARE_SIZE),
-            i32((consts.GRID_ROWS - available_position.row - 1) * consts.SQUARE_SIZE),
+            i32(neighbor_pos[1] * consts.SQUARE_SIZE),
+            i32((consts.GRID_ROWS - neighbor_pos[0] - 1) * consts.SQUARE_SIZE),
             consts.SQUARE_SIZE,
             consts.SQUARE_SIZE,
             raylib.ORANGE
@@ -174,8 +155,8 @@ draw :: proc(self: ^AStar, last_iterated_node_pos: maze.MatrixPos) {
 
     for current_pos != {-1, -1} {
         raylib.DrawRectangle(
-            i32(current_pos.column * consts.SQUARE_SIZE),
-            i32(current_pos.row * consts.SQUARE_SIZE),
+            i32(current_pos[1] * consts.SQUARE_SIZE),
+            i32(current_pos[0] * consts.SQUARE_SIZE),
             consts.SQUARE_SIZE,
             consts.SQUARE_SIZE,
             raylib.GREEN,
