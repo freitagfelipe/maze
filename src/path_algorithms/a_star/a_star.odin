@@ -158,6 +158,10 @@ drop :: proc(self: ^AStar) {
 }
 
 draw :: proc(self: ^AStar) {
+    @(static)
+    number_of_lookup_failures := 0
+
+
     raylib.DrawTexture(self.main_texture.texture, 0, 0, raylib.WHITE)
 
     current_pos := self.path_end
@@ -171,8 +175,15 @@ draw :: proc(self: ^AStar) {
             raylib.GREEN,
         )
 
+        // This should happen only on the first iteration.
         if !(current_pos in self.closed_set) {
+            number_of_lookup_failures += 1
+
             fmt.eprintln(current_pos, "Not found in closed set")
+            
+            if number_of_lookup_failures > 1 {
+                panic("More than one lookup failure happened")
+            }
 
             break
         }
