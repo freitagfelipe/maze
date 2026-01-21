@@ -7,6 +7,7 @@ import "core:mem"
 import "vendor:raylib"
 import "consts"
 import "maze"
+import "path_algorithms"
 import "path_algorithms/a_star"
 import "path_algorithms/dfs"
 
@@ -177,11 +178,11 @@ solving_maze_screen :: proc(app: ^App) -> runtime.Allocator_Error {
         case .AStar:
             algorithm := &app.a_star.? or_else panic("A* should be initialized at this point")
 
-            a_star.draw(algorithm)
+            path_algorithms.draw(algorithm)
         case .Dfs:
             algorithm := &app.dfs.? or_else panic("Dfs should be initialized at this point")
 
-            dfs.draw(algorithm)
+            path_algorithms.draw(algorithm)
         }
 
         raylib.EndDrawing()
@@ -193,11 +194,11 @@ solving_maze_screen :: proc(app: ^App) -> runtime.Allocator_Error {
             case .AStar:
                 algorithm := &app.a_star.? or_else panic("A* should be initialized at this point")
 
-                any_updates_left = a_star.update(algorithm, app.maze.maze) or_return
+                any_updates_left = path_algorithms.update(algorithm, app.maze.maze) or_return
             case .Dfs:
                 algorithm := &app.dfs.? or_else panic("Dfs should be initialized at this point")
 
-                any_updates_left = dfs.update(algorithm, app.maze.maze)
+                any_updates_left = path_algorithms.update(algorithm, app.maze.maze)
             }
         }
 
@@ -224,11 +225,11 @@ maze_solved_screen :: proc(app: ^App) {
     case .AStar:
         algorithm := &app.a_star.? or_else panic("A* should be initialized at this point")
 
-        a_star.draw(algorithm)
+        path_algorithms.draw(algorithm)
     case .Dfs:
         algorithm := &app.dfs.? or_else panic("Dfs should be initialized at this point")
 
-        dfs.draw(algorithm)
+        path_algorithms.draw(algorithm)
     }
 
     raylib.EndDrawing()
