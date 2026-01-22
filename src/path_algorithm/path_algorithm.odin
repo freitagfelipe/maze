@@ -1,4 +1,4 @@
-package path_algorithms
+package path_algorithm
 
 import "a_star"
 import "dfs"
