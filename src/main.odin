@@ -34,7 +34,6 @@ App :: struct {
 }
 
 get_window_title :: proc(app: ^App) -> string {
-    // TODO: handle error
     builder := strings.builder_make() or_else panic("Alloc error")
 
     app_state_string: string
